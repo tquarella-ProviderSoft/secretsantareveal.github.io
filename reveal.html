@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Santa Reveal - ProviderSoft</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@400;700&family=Poppins:wght@300;400;600&display=swap');
+
+        body {
+            background: radial-gradient(circle at center, #1a4c42 0%, #0d2b26 100%);
+            font-family: 'Poppins', sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .christmas-font {
+            font-family: 'Mountains of Christmas', cursive;
+        }
+
+        /* Snow Animation */
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            color: white;
+            opacity: 0.8;
+            z-index: 1;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(105vh); }
+        }
+
+        /* Gift Box Styles */
+        .gift-container {
+            perspective: 1000px;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .gift-container:hover {
+            transform: scale(1.05);
+        }
+
+        .gift-box {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            transform-style: preserve-3d;
+            transition: all 1s ease-in-out;
+        }
+
+        .gift-box.shaking {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        .gift-box.opened {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0);
+        }
+
+        .gift-face {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: #ef4444; /* Red-500 */
+            border: 2px solid #b91c1c;
+        }
+
+        .gift-face::before, .gift-face::after {
+            content: '';
+            position: absolute;
+            background: #fbbf24; /* Amber-400 */
+        }
+
+        /* Ribbon vertical */
+        .gift-face::before {
+            width: 40px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Ribbon horizontal */
+        .gift-face::after {
+            width: 100%;
+            height: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .front  { transform: rotateY(0deg) translateZ(100px); }
+        .back   { transform: rotateY(180deg) translateZ(100px); }
+        .right  { transform: rotateY(90deg) translateZ(100px); }
+        .left   { transform: rotateY(-90deg) translateZ(100px); }
+        .top    { 
+            transform: rotateX(90deg) translateZ(100px); 
+            background: #ef4444;
+        }
+        .bottom { transform: rotateX(-90deg) translateZ(100px); }
+
+        /* Lid specific styles */
+        .lid {
+            position: absolute;
+            width: 210px;
+            height: 50px;
+            background: #dc2626; /* Red-600 */
+            top: -50px;
+            left: -5px;
+            transform-style: preserve-3d;
+            transform: translateZ(100px); 
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0) rotate3d(0, 0, 1, -2deg); }
+            20%, 80% { transform: translate3d(4px, 0, 0) rotate3d(0, 0, 1, 4deg); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0) rotate3d(0, 0, 1, -8deg); }
+            40%, 60% { transform: translate3d(8px, 0, 0) rotate3d(0, 0, 1, 8deg); }
+        }
+
+        /* Reveal Content */
+        .reveal-card {
+            opacity: 0;
+            transform: scale(0.8) translateY(50px);
+            transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: none;
+        }
+
+        .reveal-card.visible {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            display: flex;
+        }
+
+        .animate-float {
+            animation: floating 3s ease-in-out infinite;
+        }
+
+        @keyframes floating {
+            0% { transform: translate(0,  0px); }
+            50% { transform: translate(0, 15px); }
+            100% { transform: translate(0, -0px); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center relative">
+
+    <!-- Snow Container -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none"></div>
+
+    <!-- Header -->
+    <div class="absolute top-8 text-center text-white z-10 w-full px-4">
+        <h2 class="text-xl md:text-2xl opacity-80 font-light tracking-widest uppercase">ProviderSoft Secret Santa</h2>
+    </div>
+
+    <!-- Interaction Area -->
+    <div class="relative z-20 flex flex-col items-center justify-center w-full max-w-4xl p-4">
+        
+        <!-- Pre-Reveal State -->
+        <div id="gift-wrapper" class="flex flex-col items-center">
+            <div class="text-white text-center mb-12 animate-float">
+                <h1 class="christmas-font text-5xl md:text-7xl mb-4 text-amber-300 drop-shadow-lg">For Cole Anderson</h1>
+                <p class="text-lg md:text-xl font-light opacity-90">Tap the gift to unwrap!</p>
+            </div>
+
+            <div class="gift-container" onclick="openGift()">
+                <div id="box" class="gift-box">
+                    <div class="gift-face front"></div>
+                    <div class="gift-face back"></div>
+                    <div class="gift-face right"></div>
+                    <div class="gift-face left"></div>
+                    <div class="gift-face top"></div>
+                    <div class="gift-face bottom"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Post-Reveal State -->
+        <div id="reveal-content" class="reveal-card flex-col items-center bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-6 md:p-10 max-w-2xl w-full mx-4 border-4 border-amber-300">
+            
+            <div class="w-full relative mb-6 rounded-xl overflow-hidden shadow-lg group">
+                <!-- Bonsai Image -->
+                <img src="https://m.media-amazon.com/images/I/91GgzH6YecL._AC_SX679_.jpg" 
+                     alt="Bonsai Tree" 
+                     class="w-full h-64 md:h-80 object-cover transform transition duration-700 group-hover:scale-105">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-4">
+                    <span class="text-white text-lg font-medium">Coming Soon to a Desk Near You</span>
+                </div>
+            </div>
+
+            <h2 class="christmas-font text-4xl md:text-5xl text-green-800 mb-2">Merry Christmas!</h2>
+            <h3 class="text-xl text-gray-600 font-semibold mb-6">A Bonsai Starter Set</h3>
+
+            <div class="bg-red-50 rounded-lg p-6 mb-8 border border-red-100 w-full">
+                <div class="flex items-start space-x-4">
+                    <i class="fas fa-sleigh text-red-500 text-2xl mt-1"></i>
+                    <div class="text-left">
+                        <p class="text-gray-800 font-medium mb-2">Status: Stuck in Santa's Sleigh 🎅</p>
+                        <p class="text-gray-600 text-sm leading-relaxed">
+                            Hey Cole! I got you something to bring a little zen to your workspace. 
+                            Unfortunately, the elves (Amazon logistics) are running a bit behind schedule. 
+                            It's officially ordered and on its way!
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 w-full">
+                <a href="https://www.amazon.ca/dp/B0CW6LQ4QR?psc=1&smid=A12VXMW1D5JQP8&ref_=chk_typ_imgToDp" 
+                   target="_blank"
+                   class="flex-1 bg-amber-400 hover:bg-amber-500 text-amber-900 font-bold py-3 px-6 rounded-lg transition text-center shadow-md flex items-center justify-center gap-2">
+                    <i class="fab fa-amazon"></i> See the Real Thing
+                </a>
+            </div>
+
+            <div class="mt-8 text-gray-400 text-sm font-light">
+                From your Secret Santa,<br>
+                <strong class="text-gray-600">Tony Quarella</strong>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Snow Effect
+        function createSnow() {
+            const container = document.getElementById('snow-container');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const snow = document.createElement('div');
+                snow.className = 'snowflake';
+                snow.innerHTML = '❄';
+                snow.style.left = Math.random() * 100 + 'vw';
+                snow.style.animationDuration = Math.random() * 3 + 2 + 's';
+                snow.style.opacity = Math.random();
+                snow.style.fontSize = Math.random() * 10 + 10 + 'px';
+                
+                container.appendChild(snow);
+            }
+        }
+
+        createSnow();
+
+        // Gift Logic
+        function openGift() {
+            const box = document.getElementById('box');
+            const wrapper = document.getElementById('gift-wrapper');
+            const reveal = document.getElementById('reveal-content');
+
+            // 1. Shake
+            box.classList.add('shaking');
+
+            // 2. Explode Confetti
+            setTimeout(() => {
+                triggerConfetti();
+                
+                // 3. Hide Box / Show Content
+                box.classList.remove('shaking');
+                box.classList.add('opened');
+                
+                // Fade out wrapper wrapper text
+                wrapper.style.transition = 'opacity 0.5s';
+                wrapper.style.opacity = '0';
+
+                setTimeout(() => {
+                    wrapper.style.display = 'none';
+                    reveal.classList.add('visible');
+                    
+                    // Second burst of confetti for the reveal
+                    setTimeout(() => triggerConfetti(), 300);
+                }, 500);
+
+            }, 500);
+        }
+
+        function triggerConfetti() {
+            const duration = 3000;
+            const end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#ef4444', '#22c55e', '#fbbf24'] // Christmas colors
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#ef4444', '#22c55e', '#fbbf24']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+    </script>
+</body>
+</html>
